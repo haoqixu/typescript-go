@@ -25,6 +25,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/jsnum"
+	"github.com/microsoft/typescript-go/internal/parser"
 	"github.com/microsoft/typescript-go/internal/scanner"
 	"github.com/microsoft/typescript-go/internal/stringutil"
 )
@@ -42,7 +43,7 @@ type PrinterOptions struct {
 	// InlineSources                 bool
 	OmitBraceSourceMapPositions bool
 	// ExtendedDiagnostics           bool
-	// OnlyPrintJsDocStyle           bool
+	OnlyPrintJsDocStyle bool
 	// NeverAsciiEscape              bool
 	// StripInternal                 bool
 	PreserveSourceNewlines bool
@@ -4912,8 +4913,11 @@ func (p *Printer) emitLeadingComments(pos int, isEmittedNode bool) {
 	}
 }
 
-func (p *Printer) shouldWriteComment() bool {
-	// !!! TODO: printerOptions.onlyPrintJsDocStyble
+func (p *Printer) shouldWriteComment(pos int) bool {
+	if p.Options.OnlyPrintJsDocStyle {
+		text := p.currentSourceFile.Text[pos:]
+		return parser.IsJSDocLikeText(text) || parser.IsPinnedComment(text)
+	}
 	return true
 }
 
@@ -4981,7 +4985,7 @@ func (p *Printer) forEachTrailingCommentRange(
 }
 
 func (p *Printer) emitLeadingComment(commentRange ast.CommentRange, rangePos int) {
-	if p.currentSourceFile == nil || !p.shouldWriteComment() {
+	if p.currentSourceFile == nil || !p.shouldWriteComment(commentRange.Pos()) {
 		return
 	}
 	if !p.hasWrittenComment {
@@ -5003,7 +5007,7 @@ func (p *Printer) emitLeadingComment(commentRange ast.CommentRange, rangePos int
 }
 
 func (p *Printer) emitTrailingComment(commentRange ast.CommentRange) {
-	if p.currentSourceFile == nil || !p.shouldWriteComment() {
+	if p.currentSourceFile == nil || !p.shouldWriteComment(commentRange.Pos()) {
 		return
 	}
 	// trailing comments are emitted at space/*trailing comment1 */space/*trailing comment2*/
